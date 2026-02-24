@@ -34,11 +34,11 @@ typedef struct SensorParam t_SensorParam;
 void app_main()
 {
     QueueHandle_t xHTQueue[NUM_ACQ_SENSORS];    
-    TaskHandle_t xHandleAcq = NULL;
+    TaskHandle_t xHandleAcq[NUM_ACQ_SENSORS];
     TaskHandle_t xHandleDisp = NULL;            
 
 	/* Create the queue set */
-    QueueSetHandle_t xQueueSet = ...;
+    QueueSetHandle_t xQueueSet = xQueueCreateSet(HT_QUEUE_LENGTH * NUM_ACQ_SENSORS);
 
     for (unsigned int i = 0; i < NUM_ACQ_SENSORS; i++)
     {
@@ -50,14 +50,14 @@ void app_main()
         }
 
 		/* Add the queue to the set */
-        ...;
+        xQueueAddToSet(xHTQueue[i], xQueueSet);
 
         t_SensorParam param;
         param.sensorID = i;
         param.queue = xHTQueue[i];
 
-        xTaskCreate(HTAcquisition, "Task_Acq", TASK_STACK_SIZE, (void *)&param, TASK_ACQ_PRIORITY, &xHandleAcq);
-        configASSERT( xHandleAcq );
+        xTaskCreate(HTAcquisition, "Task_Acq", TASK_STACK_SIZE, (void *)&param, TASK_ACQ_PRIORITY, &xHandleAcq[i]);
+        configASSERT( xHandleAcq[i] );
         ESP_LOGI(TAG, "[app_main] Task_Acq %d created.", i);
     }    
 
@@ -113,9 +113,9 @@ void HTDisplay(void * queueSet)
         t_HTreading HTreceived;
 
 		/* Select the queue */
-        QueueHandle_t queue = ...;
+        QueueHandle_t queue = xQueueSelectFromSet(xQueueSet, portMAX_DELAY);
 		/* Receive from the queue */
-        BaseType_t xStatus = ...;
+        BaseType_t xStatus = xQueueReceive(queue, &HTreceived, portMAX_DELAY);
         if (xStatus == pdPASS)
         {
             printf("Sensor ID %d: Temperature %d°C, humidity %d%%\n", 
